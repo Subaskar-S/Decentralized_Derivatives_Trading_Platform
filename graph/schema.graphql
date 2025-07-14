@@ -1,0 +1,401 @@
+# Derivatives Trading Platform Subgraph Schema
+
+# Core Trading Entities
+type Position @entity {
+  id: ID! # positionId
+  trader: Trader!
+  market: Market!
+  positionId: Bytes!
+  size: BigInt!
+  collateral: BigInt!
+  entryPrice: BigInt!
+  exitPrice: BigInt
+  entryTime: BigInt!
+  exitTime: BigInt
+  isLong: Boolean!
+  fundingIndex: BigInt!
+  pnl: BigInt
+  status: PositionStatus!
+  liquidationPrice: BigInt
+  marginRatio: BigDecimal
+  
+  # Relationships
+  trades: [Trade!]! @derivedFrom(field: "position")
+  liquidations: [Liquidation!]! @derivedFrom(field: "position")
+  collateralUpdates: [CollateralUpdate!]! @derivedFrom(field: "position")
+  
+  # Metadata
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+enum PositionStatus {
+  OPEN
+  CLOSED
+  LIQUIDATED
+}
+
+type Market @entity {
+  id: ID! # symbol
+  symbol: String!
+  maxLeverage: BigInt!
+  fundingRate: BigInt!
+  lastFundingTime: BigInt!
+  openInterestLong: BigInt!
+  openInterestShort: BigInt!
+  isActive: Boolean!
+  
+  # Aggregated data
+  totalVolume: BigInt!
+  totalTrades: BigInt!
+  totalPositions: BigInt!
+  activePositions: BigInt!
+  
+  # Price data
+  currentPrice: BigInt
+  priceHistory: [PriceUpdate!]! @derivedFrom(field: "market")
+  
+  # Relationships
+  positions: [Position!]! @derivedFrom(field: "market")
+  trades: [Trade!]! @derivedFrom(field: "market")
+  fundingRateUpdates: [FundingRateUpdate!]! @derivedFrom(field: "market")
+  
+  # Metadata
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+type Trader @entity {
+  id: ID! # address
+  address: Bytes!
+  
+  # Trading statistics
+  totalPositions: BigInt!
+  activePositions: BigInt!
+  totalVolume: BigInt!
+  totalPnL: BigInt!
+  totalCollateral: BigInt!
+  winRate: BigDecimal!
+  averageHoldTime: BigInt!
+  
+  # Risk metrics
+  riskScore: BigInt!
+  liquidationCount: BigInt!
+  marginCallCount: BigInt!
+  
+  # Relationships
+  positions: [Position!]! @derivedFrom(field: "trader")
+  trades: [Trade!]! @derivedFrom(field: "trader")
+  liquidations: [Liquidation!]! @derivedFrom(field: "trader")
+  
+  # Metadata
+  firstTradeAt: BigInt!
+  lastTradeAt: BigInt!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+type Trade @entity {
+  id: ID! # transactionHash-logIndex
+  trader: Trader!
+  position: Position!
+  market: Market!
+  
+  # Trade details
+  type: TradeType!
+  size: BigInt!
+  price: BigInt!
+  collateral: BigInt
+  fee: BigInt!
+  pnl: BigInt
+  
+  # Metadata
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+  gasUsed: BigInt
+  gasPrice: BigInt
+}
+
+enum TradeType {
+  OPEN
+  CLOSE
+  INCREASE
+  DECREASE
+  ADD_COLLATERAL
+  REMOVE_COLLATERAL
+}
+
+type Liquidation @entity {
+  id: ID! # transactionHash-logIndex
+  position: Position!
+  trader: Trader!
+  liquidator: Liquidator!
+  
+  # Liquidation details
+  liquidatedSize: BigInt!
+  liquidationPrice: BigInt!
+  liquidationFee: BigInt!
+  insuranceFundContribution: BigInt!
+  marginRatio: BigDecimal!
+  
+  # Metadata
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type Liquidator @entity {
+  id: ID! # address
+  address: Bytes!
+  
+  # Performance metrics
+  totalLiquidations: BigInt!
+  totalRewards: BigInt!
+  successRate: BigDecimal!
+  averageReward: BigInt!
+  
+  # Relationships
+  liquidations: [Liquidation!]! @derivedFrom(field: "liquidator")
+  
+  # Metadata
+  registeredAt: BigInt!
+  lastLiquidationAt: BigInt!
+  isActive: Boolean!
+}
+
+type PriceUpdate @entity {
+  id: ID! # symbol-timestamp
+  market: Market!
+  price: BigInt!
+  confidence: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  source: String! # oracle source
+}
+
+type FundingRateUpdate @entity {
+  id: ID! # symbol-timestamp
+  market: Market!
+  fundingRate: BigInt!
+  openInterestLong: BigInt!
+  openInterestShort: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type CollateralUpdate @entity {
+  id: ID! # positionId-timestamp
+  position: Position!
+  trader: Trader!
+  
+  # Update details
+  oldCollateral: BigInt!
+  newCollateral: BigInt!
+  collateralDelta: BigInt!
+  type: CollateralUpdateType!
+  
+  # Metadata
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+enum CollateralUpdateType {
+  ADD
+  REMOVE
+  LIQUIDATION
+}
+
+# Governance Entities
+type Proposal @entity {
+  id: ID! # proposalId
+  proposalId: BigInt!
+  proposer: Bytes!
+  title: String!
+  description: String!
+  ipfsHash: String
+  category: ProposalCategory!
+  
+  # Voting data
+  startTime: BigInt!
+  endTime: BigInt!
+  forVotes: BigInt!
+  againstVotes: BigInt!
+  abstainVotes: BigInt!
+  totalVotes: BigInt!
+  quorumRequired: BigInt!
+  
+  # Status
+  state: ProposalState!
+  executed: Boolean!
+  cancelled: Boolean!
+  
+  # Relationships
+  votes: [Vote!]! @derivedFrom(field: "proposal")
+  
+  # Metadata
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+enum ProposalCategory {
+  PARAMETER
+  TREASURY
+  PROTOCOL
+  EMERGENCY
+  COMMUNITY
+}
+
+enum ProposalState {
+  PENDING
+  ACTIVE
+  SUCCEEDED
+  DEFEATED
+  EXECUTED
+  CANCELLED
+  EXPIRED
+}
+
+type Vote @entity {
+  id: ID! # proposalId-voter
+  proposal: Proposal!
+  voter: Bytes!
+  support: VoteSupport!
+  weight: BigInt!
+  reason: String
+  
+  # Metadata
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+enum VoteSupport {
+  AGAINST
+  FOR
+  ABSTAIN
+}
+
+type GovernanceToken @entity {
+  id: ID! # "governance-token"
+  totalSupply: BigInt!
+  totalHolders: BigInt!
+  totalDelegates: BigInt!
+  
+  # Metadata
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+type TokenHolder @entity {
+  id: ID! # address
+  address: Bytes!
+  balance: BigInt!
+  votingPower: BigInt!
+  delegate: Bytes
+  
+  # Relationships
+  votes: [Vote!]! @derivedFrom(field: "voter")
+  
+  # Metadata
+  firstTransferAt: BigInt!
+  lastTransferAt: BigInt!
+}
+
+# Protocol Statistics
+type DailyStats @entity {
+  id: ID! # date (YYYY-MM-DD)
+  date: String!
+  
+  # Trading metrics
+  totalVolume: BigInt!
+  totalTrades: BigInt!
+  totalFees: BigInt!
+  activeTraders: BigInt!
+  newTraders: BigInt!
+  
+  # Position metrics
+  positionsOpened: BigInt!
+  positionsClosed: BigInt!
+  liquidations: BigInt!
+  
+  # Market metrics
+  totalOpenInterest: BigInt!
+  averageLeverage: BigDecimal!
+  
+  # Price metrics
+  averagePrice: BigInt! # ETH/USD average for the day
+  priceVolatility: BigDecimal!
+  
+  # Governance metrics
+  proposalsCreated: BigInt!
+  votescast: BigInt!
+  
+  # Metadata
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type HourlyStats @entity {
+  id: ID! # timestamp-hour
+  hour: BigInt!
+  
+  # Trading metrics
+  volume: BigInt!
+  trades: BigInt!
+  fees: BigInt!
+  
+  # Position metrics
+  positionsOpened: BigInt!
+  positionsClosed: BigInt!
+  liquidations: BigInt!
+  
+  # Market metrics
+  openInterest: BigInt!
+  fundingRate: BigInt!
+  
+  # Price data
+  openPrice: BigInt!
+  closePrice: BigInt!
+  highPrice: BigInt!
+  lowPrice: BigInt!
+  
+  # Metadata
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type ProtocolMetrics @entity {
+  id: ID! # "protocol-metrics"
+  
+  # Cumulative metrics
+  totalVolumeAllTime: BigInt!
+  totalTradesAllTime: BigInt!
+  totalFeesAllTime: BigInt!
+  totalTradersAllTime: BigInt!
+  
+  # Current metrics
+  totalValueLocked: BigInt!
+  totalOpenInterest: BigInt!
+  activePositions: BigInt!
+  activeTraders: BigInt!
+  
+  # Risk metrics
+  totalLiquidations: BigInt!
+  insuranceFundBalance: BigInt!
+  averageMarginRatio: BigDecimal!
+  
+  # Governance metrics
+  totalProposals: BigInt!
+  totalVotes: BigInt!
+  governanceParticipation: BigDecimal!
+  
+  # Metadata
+  lastUpdated: BigInt!
+  blockNumber: BigInt!
+}

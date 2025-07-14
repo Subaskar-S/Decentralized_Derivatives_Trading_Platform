@@ -1,0 +1,411 @@
+name: Security Testing and Audit
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run security tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Compile contracts
+      run: npx hardhat compile
+      
+    - name: Run unit tests
+      run: |
+        npx hardhat test test/unit/ --reporter json > test-results.json
+        npx hardhat test test/unit/ --reporter spec
+        
+    - name: Generate coverage report
+      run: |
+        npx hardhat coverage --testfiles "test/unit/**/*.js"
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: unit-tests-coverage
+        
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: unit-test-results
+        path: |
+          test-results.json
+          coverage/
+
+  security-tests:
+    name: Security Audit Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Compile contracts
+      run: npx hardhat compile
+      
+    - name: Run security tests
+      run: |
+        npx hardhat test test/security/ --reporter json > security-results.json
+        npx hardhat test test/security/ --reporter spec
+        
+    - name: Archive security test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-test-results
+        path: security-results.json
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm ci
+        pip install slither-analyzer mythril
+        
+    - name: Compile contracts
+      run: npx hardhat compile
+      
+    - name: Run Slither analysis
+      run: |
+        slither . --json slither-report.json || true
+        slither . --print human-summary > slither-summary.txt || true
+        
+    - name: Run Mythril analysis
+      run: |
+        myth analyze contracts/core/DerivativesEngine.sol --solc-json mythril-input.json -o json > mythril-report.json || true
+        
+    - name: Upload analysis results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: static-analysis-results
+        path: |
+          slither-report.json
+          slither-summary.txt
+          mythril-report.json
+
+  fuzzing-tests:
+    name: Fuzzing Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Compile contracts
+      run: npx hardhat compile
+      
+    - name: Run fuzzing tests
+      run: |
+        npx hardhat test test/fuzzing/ --timeout 3600000 --reporter json > fuzzing-results.json
+        npx hardhat test test/fuzzing/ --timeout 3600000 --reporter spec
+        
+    - name: Archive fuzzing results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: fuzzing-test-results
+        path: fuzzing-results.json
+
+  gas-analysis:
+    name: Gas Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Compile contracts
+      run: npx hardhat compile
+      
+    - name: Run gas analysis
+      run: |
+        REPORT_GAS=true npx hardhat test test/unit/DerivativesEngine.comprehensive.test.js > gas-report.txt
+        
+    - name: Upload gas analysis
+      uses: actions/upload-artifact@v3
+      with:
+        name: gas-analysis-report
+        path: gas-report.txt
+
+  formal-verification:
+    name: Formal Verification
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Compile contracts
+      run: npx hardhat compile
+      
+    - name: Run Certora verification
+      env:
+        CERTORAKEY: ${{ secrets.CERTORA_KEY }}
+      run: |
+        # Install Certora CLI
+        pip install certora-cli
+        
+        # Run formal verification
+        certoraRun certora/specs/DerivativesEngine.spec \
+          --verify DerivativesEngine:certora/specs/DerivativesEngine.spec \
+          --solc solc8.20 \
+          --msg "Automated verification run" \
+          --output-dir certora-output || true
+          
+    - name: Upload verification results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: formal-verification-results
+        path: certora-output/
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, security-tests]
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd api && npm ci
+        cd ../graph && npm ci
+        
+    - name: Start local blockchain
+      run: |
+        npx hardhat node &
+        sleep 10
+        
+    - name: Deploy contracts
+      run: |
+        npx hardhat run scripts/deploy.js --network localhost
+        
+    - name: Run integration tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+      run: |
+        npm run test:integration
+        
+    - name: Archive integration test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-results
+        path: integration-test-results.json
+
+  security-report:
+    name: Generate Security Report
+    runs-on: ubuntu-latest
+    needs: [unit-tests, security-tests, static-analysis, fuzzing-tests]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install report dependencies
+      run: |
+        pip install jinja2 markdown
+        
+    - name: Generate security report
+      run: |
+        python scripts/generate-security-report.py \
+          --unit-tests unit-test-results/ \
+          --security-tests security-test-results/ \
+          --static-analysis static-analysis-results/ \
+          --fuzzing-tests fuzzing-test-results/ \
+          --output security-report.html
+          
+    - name: Upload security report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: security-report.html
+        
+    - name: Comment PR with security summary
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Read test results and generate summary
+          let summary = '## 🛡️ Security Test Summary\n\n';
+          
+          try {
+            // Add unit test results
+            const unitResults = JSON.parse(fs.readFileSync('unit-test-results/test-results.json', 'utf8'));
+            summary += `- **Unit Tests**: ${unitResults.stats.passes} passed, ${unitResults.stats.failures} failed\n`;
+            
+            // Add security test results
+            const securityResults = JSON.parse(fs.readFileSync('security-test-results/security-results.json', 'utf8'));
+            summary += `- **Security Tests**: ${securityResults.stats.passes} passed, ${securityResults.stats.failures} failed\n`;
+            
+            // Add static analysis summary
+            if (fs.existsSync('static-analysis-results/slither-summary.txt')) {
+              const slitherSummary = fs.readFileSync('static-analysis-results/slither-summary.txt', 'utf8');
+              summary += `- **Static Analysis**: See detailed report\n`;
+            }
+            
+            summary += '\n📊 **Full Report**: Check the security-report artifact for detailed analysis.';
+            
+          } catch (error) {
+            summary += '❌ Error generating summary. Check individual test results.';
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+
+  notify-security:
+    name: Security Notifications
+    runs-on: ubuntu-latest
+    needs: [security-report]
+    if: failure() && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Notify security team
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🚨 Security Test Failure Alert',
+            body: `Security tests failed on main branch.\n\nWorkflow: ${context.workflow}\nRun: ${context.runNumber}\nCommit: ${context.sha}`,
+            labels: ['security', 'urgent']
+          });
+          
+    - name: Send Slack notification
+      if: env.SLACK_WEBHOOK_URL
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"🚨 Security tests failed on main branch. Check GitHub Actions for details."}' \
+          $SLACK_WEBHOOK_URL

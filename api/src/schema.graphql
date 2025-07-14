@@ -1,0 +1,602 @@
+scalar BigInt
+scalar BigDecimal
+scalar Bytes
+
+type Query {
+  # Trading Queries
+  position(id: ID!): Position
+  positions(
+    first: Int = 10
+    skip: Int = 0
+    where: PositionFilter
+    orderBy: PositionOrderBy
+    orderDirection: OrderDirection = desc
+  ): [Position!]!
+  
+  trader(id: ID!): Trader
+  traders(
+    first: Int = 10
+    skip: Int = 0
+    where: TraderFilter
+    orderBy: TraderOrderBy
+    orderDirection: OrderDirection = desc
+  ): [Trader!]!
+  
+  market(id: ID!): Market
+  markets(
+    first: Int = 10
+    skip: Int = 0
+    where: MarketFilter
+    orderBy: MarketOrderBy
+    orderDirection: OrderDirection = desc
+  ): [Market!]!
+  
+  trades(
+    first: Int = 10
+    skip: Int = 0
+    where: TradeFilter
+    orderBy: TradeOrderBy
+    orderDirection: OrderDirection = desc
+  ): [Trade!]!
+  
+  liquidations(
+    first: Int = 10
+    skip: Int = 0
+    where: LiquidationFilter
+    orderBy: LiquidationOrderBy
+    orderDirection: OrderDirection = desc
+  ): [Liquidation!]!
+  
+  # Governance Queries
+  proposal(id: ID!): Proposal
+  proposals(
+    first: Int = 10
+    skip: Int = 0
+    where: ProposalFilter
+    orderBy: ProposalOrderBy
+    orderDirection: OrderDirection = desc
+  ): [Proposal!]!
+  
+  votes(
+    first: Int = 10
+    skip: Int = 0
+    where: VoteFilter
+    orderBy: VoteOrderBy
+    orderDirection: OrderDirection = desc
+  ): [Vote!]!
+  
+  # Analytics Queries
+  dailyStats(
+    first: Int = 30
+    skip: Int = 0
+    where: DailyStatsFilter
+    orderBy: DailyStatsOrderBy
+    orderDirection: OrderDirection = desc
+  ): [DailyStats!]!
+  
+  hourlyStats(
+    first: Int = 24
+    skip: Int = 0
+    where: HourlyStatsFilter
+    orderBy: HourlyStatsOrderBy
+    orderDirection: OrderDirection = desc
+  ): [HourlyStats!]!
+  
+  protocolMetrics: ProtocolMetrics
+  
+  # Price Data
+  priceUpdates(
+    first: Int = 100
+    skip: Int = 0
+    where: PriceUpdateFilter
+    orderBy: PriceUpdateOrderBy
+    orderDirection: OrderDirection = desc
+  ): [PriceUpdate!]!
+  
+  # Leaderboards
+  topTraders(
+    first: Int = 10
+    metric: TraderMetric = totalPnL
+    timeframe: Timeframe = allTime
+  ): [Trader!]!
+  
+  topLiquidators(
+    first: Int = 10
+    timeframe: Timeframe = allTime
+  ): [Liquidator!]!
+  
+  # Search
+  searchTraders(query: String!, first: Int = 10): [Trader!]!
+  searchMarkets(query: String!, first: Int = 10): [Market!]!
+}
+
+# Core Types
+type Position {
+  id: ID!
+  positionId: Bytes!
+  trader: Trader!
+  market: Market!
+  size: BigInt!
+  collateral: BigInt!
+  entryPrice: BigInt!
+  exitPrice: BigInt
+  entryTime: BigInt!
+  exitTime: BigInt
+  isLong: Boolean!
+  fundingIndex: BigInt!
+  pnl: BigInt
+  status: PositionStatus!
+  liquidationPrice: BigInt
+  marginRatio: BigDecimal
+  trades: [Trade!]!
+  liquidations: [Liquidation!]!
+  collateralUpdates: [CollateralUpdate!]!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type Trader {
+  id: ID!
+  address: Bytes!
+  totalPositions: BigInt!
+  activePositions: BigInt!
+  totalVolume: BigInt!
+  totalPnL: BigInt!
+  totalCollateral: BigInt!
+  winRate: BigDecimal!
+  averageHoldTime: BigInt!
+  riskScore: BigInt!
+  liquidationCount: BigInt!
+  marginCallCount: BigInt!
+  positions: [Position!]!
+  trades: [Trade!]!
+  liquidations: [Liquidation!]!
+  firstTradeAt: BigInt!
+  lastTradeAt: BigInt!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+type Market {
+  id: ID!
+  symbol: String!
+  maxLeverage: BigInt!
+  fundingRate: BigInt!
+  lastFundingTime: BigInt!
+  openInterestLong: BigInt!
+  openInterestShort: BigInt!
+  isActive: Boolean!
+  totalVolume: BigInt!
+  totalTrades: BigInt!
+  totalPositions: BigInt!
+  activePositions: BigInt!
+  currentPrice: BigInt
+  priceHistory: [PriceUpdate!]!
+  positions: [Position!]!
+  trades: [Trade!]!
+  fundingRateUpdates: [FundingRateUpdate!]!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+type Trade {
+  id: ID!
+  trader: Trader!
+  position: Position!
+  market: Market!
+  type: TradeType!
+  size: BigInt!
+  price: BigInt!
+  collateral: BigInt
+  fee: BigInt!
+  pnl: BigInt
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+  gasUsed: BigInt
+  gasPrice: BigInt
+}
+
+type Liquidation {
+  id: ID!
+  position: Position!
+  trader: Trader!
+  liquidator: Liquidator!
+  liquidatedSize: BigInt!
+  liquidationPrice: BigInt!
+  liquidationFee: BigInt!
+  insuranceFundContribution: BigInt!
+  marginRatio: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type Proposal {
+  id: ID!
+  proposalId: BigInt!
+  proposer: Bytes!
+  title: String!
+  description: String!
+  ipfsHash: String
+  category: ProposalCategory!
+  startTime: BigInt!
+  endTime: BigInt!
+  forVotes: BigInt!
+  againstVotes: BigInt!
+  abstainVotes: BigInt!
+  totalVotes: BigInt!
+  quorumRequired: BigInt!
+  state: ProposalState!
+  executed: Boolean!
+  cancelled: Boolean!
+  votes: [Vote!]!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type Vote {
+  id: ID!
+  proposal: Proposal!
+  voter: Bytes!
+  support: VoteSupport!
+  weight: BigInt!
+  reason: String
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type DailyStats {
+  id: ID!
+  date: String!
+  totalVolume: BigInt!
+  totalTrades: BigInt!
+  totalFees: BigInt!
+  activeTraders: BigInt!
+  newTraders: BigInt!
+  positionsOpened: BigInt!
+  positionsClosed: BigInt!
+  liquidations: BigInt!
+  totalOpenInterest: BigInt!
+  averageLeverage: BigDecimal!
+  averagePrice: BigInt!
+  priceVolatility: BigDecimal!
+  proposalsCreated: BigInt!
+  votescast: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type ProtocolMetrics {
+  id: ID!
+  totalVolumeAllTime: BigInt!
+  totalTradesAllTime: BigInt!
+  totalFeesAllTime: BigInt!
+  totalTradersAllTime: BigInt!
+  totalValueLocked: BigInt!
+  totalOpenInterest: BigInt!
+  activePositions: BigInt!
+  activeTraders: BigInt!
+  totalLiquidations: BigInt!
+  insuranceFundBalance: BigInt!
+  averageMarginRatio: BigDecimal!
+  totalProposals: BigInt!
+  totalVotes: BigInt!
+  governanceParticipation: BigDecimal!
+  lastUpdated: BigInt!
+  blockNumber: BigInt!
+}
+
+# Enums
+enum PositionStatus {
+  OPEN
+  CLOSED
+  LIQUIDATED
+}
+
+enum TradeType {
+  OPEN
+  CLOSE
+  INCREASE
+  DECREASE
+  ADD_COLLATERAL
+  REMOVE_COLLATERAL
+}
+
+enum ProposalCategory {
+  PARAMETER
+  TREASURY
+  PROTOCOL
+  EMERGENCY
+  COMMUNITY
+}
+
+enum ProposalState {
+  PENDING
+  ACTIVE
+  SUCCEEDED
+  DEFEATED
+  EXECUTED
+  CANCELLED
+  EXPIRED
+}
+
+enum VoteSupport {
+  AGAINST
+  FOR
+  ABSTAIN
+}
+
+enum OrderDirection {
+  asc
+  desc
+}
+
+enum TraderMetric {
+  totalVolume
+  totalPnL
+  winRate
+  totalPositions
+}
+
+enum Timeframe {
+  day
+  week
+  month
+  allTime
+}
+
+# Filter Types
+input PositionFilter {
+  trader: String
+  market: String
+  status: PositionStatus
+  isLong: Boolean
+  size_gt: BigInt
+  size_lt: BigInt
+  pnl_gt: BigInt
+  pnl_lt: BigInt
+  createdAt_gt: BigInt
+  createdAt_lt: BigInt
+}
+
+input TraderFilter {
+  address: String
+  totalVolume_gt: BigInt
+  totalPnL_gt: BigInt
+  winRate_gt: BigDecimal
+  liquidationCount_lt: BigInt
+  firstTradeAt_gt: BigInt
+}
+
+input MarketFilter {
+  symbol: String
+  isActive: Boolean
+  totalVolume_gt: BigInt
+  activePositions_gt: BigInt
+}
+
+input TradeFilter {
+  trader: String
+  market: String
+  type: TradeType
+  size_gt: BigInt
+  timestamp_gt: BigInt
+  timestamp_lt: BigInt
+}
+
+input ProposalFilter {
+  proposer: String
+  category: ProposalCategory
+  state: ProposalState
+  executed: Boolean
+  cancelled: Boolean
+  createdAt_gt: BigInt
+}
+
+input VoteFilter {
+  proposal: String
+  voter: String
+  support: VoteSupport
+  weight_gt: BigInt
+  timestamp_gt: BigInt
+}
+
+input DailyStatsFilter {
+  date: String
+  totalVolume_gt: BigInt
+  totalTrades_gt: BigInt
+  timestamp_gt: BigInt
+  timestamp_lt: BigInt
+}
+
+# Order By Types
+enum PositionOrderBy {
+  id
+  size
+  collateral
+  entryPrice
+  pnl
+  marginRatio
+  createdAt
+  updatedAt
+}
+
+enum TraderOrderBy {
+  id
+  totalVolume
+  totalPnL
+  winRate
+  totalPositions
+  liquidationCount
+  firstTradeAt
+  lastTradeAt
+}
+
+enum MarketOrderBy {
+  id
+  symbol
+  totalVolume
+  totalTrades
+  activePositions
+  fundingRate
+  createdAt
+}
+
+enum TradeOrderBy {
+  id
+  size
+  price
+  fee
+  pnl
+  timestamp
+}
+
+enum ProposalOrderBy {
+  id
+  proposalId
+  totalVotes
+  forVotes
+  startTime
+  endTime
+  createdAt
+}
+
+enum VoteOrderBy {
+  id
+  weight
+  timestamp
+}
+
+enum DailyStatsOrderBy {
+  id
+  date
+  totalVolume
+  totalTrades
+  timestamp
+}
+
+# Additional types referenced in schema
+type Liquidator {
+  id: ID!
+  address: Bytes!
+  totalLiquidations: BigInt!
+  totalRewards: BigInt!
+  successRate: BigDecimal!
+  averageReward: BigInt!
+  liquidations: [Liquidation!]!
+  registeredAt: BigInt!
+  lastLiquidationAt: BigInt!
+  isActive: Boolean!
+}
+
+type PriceUpdate {
+  id: ID!
+  market: Market!
+  price: BigInt!
+  confidence: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  source: String!
+}
+
+type FundingRateUpdate {
+  id: ID!
+  market: Market!
+  fundingRate: BigInt!
+  openInterestLong: BigInt!
+  openInterestShort: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type CollateralUpdate {
+  id: ID!
+  position: Position!
+  trader: Trader!
+  oldCollateral: BigInt!
+  newCollateral: BigInt!
+  collateralDelta: BigInt!
+  type: CollateralUpdateType!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+enum CollateralUpdateType {
+  ADD
+  REMOVE
+  LIQUIDATION
+}
+
+type HourlyStats {
+  id: ID!
+  hour: BigInt!
+  volume: BigInt!
+  trades: BigInt!
+  fees: BigInt!
+  positionsOpened: BigInt!
+  positionsClosed: BigInt!
+  liquidations: BigInt!
+  openInterest: BigInt!
+  fundingRate: BigInt!
+  openPrice: BigInt!
+  closePrice: BigInt!
+  highPrice: BigInt!
+  lowPrice: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+input LiquidationFilter {
+  trader: String
+  liquidator: String
+  liquidatedSize_gt: BigInt
+  timestamp_gt: BigInt
+  timestamp_lt: BigInt
+}
+
+input PriceUpdateFilter {
+  market: String
+  price_gt: BigInt
+  price_lt: BigInt
+  timestamp_gt: BigInt
+  timestamp_lt: BigInt
+  source: String
+}
+
+input HourlyStatsFilter {
+  hour_gt: BigInt
+  hour_lt: BigInt
+  volume_gt: BigInt
+  timestamp_gt: BigInt
+  timestamp_lt: BigInt
+}
+
+enum LiquidationOrderBy {
+  id
+  liquidatedSize
+  liquidationPrice
+  liquidationFee
+  timestamp
+}
+
+enum PriceUpdateOrderBy {
+  id
+  price
+  confidence
+  timestamp
+}
+
+enum HourlyStatsOrderBy {
+  id
+  hour
+  volume
+  trades
+  timestamp
+}

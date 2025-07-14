@@ -1,0 +1,37 @@
+{
+  "name": "decentralized-derivatives-trading-platform",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:coverage": "hardhat coverage",
+    "test:gas": "REPORT_GAS=true hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:optimism": "hardhat run scripts/deploy.js --network optimism",
+    "deploy:optimism-goerli": "hardhat run scripts/deploy.js --network optimismGoerli",
+    "verify:sepolia": "hardhat verify --network sepolia",
+    "verify:optimism": "hardhat verify --network optimism",
+    "node": "hardhat node",
+    "clean": "hardhat clean",
+    "size": "hardhat size-contracts",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "graph:codegen": "cd graph && graph codegen",
+    "graph:build": "cd graph && graph build",
+    "graph:deploy": "cd graph && graph deploy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.0.0",
+    "hardhat": "^2.25.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.3.0",
+    "dotenv": "^17.2.0"
+  }
+}

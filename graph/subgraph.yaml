@@ -1,0 +1,253 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  # Derivatives Engine - Core Trading Contract
+  - kind: ethereum
+    name: DerivativesEngine
+    network: optimism
+    source:
+      address: "0x0000000000000000000000000000000000000000" # Will be updated after deployment
+      abi: DerivativesEngine
+      startBlock: 0 # Will be updated after deployment
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Position
+        - Market
+        - Trader
+        - Trade
+        - DailyStats
+        - HourlyStats
+        - ProtocolMetrics
+      abis:
+        - name: DerivativesEngine
+          file: ./abis/DerivativesEngine.json
+        - name: PriceOracle
+          file: ./abis/PriceOracle.json
+      eventHandlers:
+        - event: PositionOpened(indexed address,indexed bytes32,string,uint256,uint256,uint256,bool)
+          handler: handlePositionOpened
+        - event: PositionClosed(indexed address,indexed bytes32,uint256,int256)
+          handler: handlePositionClosed
+        - event: CollateralAdded(indexed bytes32,uint256,uint256)
+          handler: handleCollateralAdded
+        - event: CollateralRemoved(indexed bytes32,uint256,uint256)
+          handler: handleCollateralRemoved
+        - event: MarketAdded(string,uint256)
+          handler: handleMarketAdded
+        - event: FundingRateUpdated(string,uint256,uint256)
+          handler: handleFundingRateUpdated
+      file: ./src/derivatives-engine.ts
+
+  # Advanced Risk Manager - Risk and Liquidation Events
+  - kind: ethereum
+    name: AdvancedRiskManager
+    network: optimism
+    source:
+      address: "0x0000000000000000000000000000000000000000" # Will be updated after deployment
+      abi: AdvancedRiskManager
+      startBlock: 0 # Will be updated after deployment
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Position
+        - Liquidation
+        - Liquidator
+        - Trader
+        - ProtocolMetrics
+      abis:
+        - name: AdvancedRiskManager
+          file: ./abis/AdvancedRiskManager.json
+        - name: DerivativesEngine
+          file: ./abis/DerivativesEngine.json
+      eventHandlers:
+        - event: LiquidatorRegistered(indexed address)
+          handler: handleLiquidatorRegistered
+        - event: PartialLiquidation(indexed bytes32,uint256,uint256)
+          handler: handlePartialLiquidation
+        - event: InsuranceFundContribution(uint256,uint256)
+          handler: handleInsuranceFundContribution
+        - event: RiskScoreUpdated(indexed address,uint256)
+          handler: handleRiskScoreUpdated
+        - event: MarginCall(indexed bytes32,uint256,uint256)
+          handler: handleMarginCall
+      file: ./src/risk-manager.ts
+
+  # Price Oracle - Price Feed Events
+  - kind: ethereum
+    name: PriceOracle
+    network: optimism
+    source:
+      address: "0x0000000000000000000000000000000000000000" # Will be updated after deployment
+      abi: PriceOracle
+      startBlock: 0 # Will be updated after deployment
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Market
+        - PriceUpdate
+        - HourlyStats
+      abis:
+        - name: PriceOracle
+          file: ./abis/PriceOracle.json
+      eventHandlers:
+        - event: PriceUpdated(string,uint256,uint256,uint256)
+          handler: handlePriceUpdated
+        - event: OracleAdded(indexed address,string,uint256)
+          handler: handleOracleAdded
+        - event: EmergencyPriceSet(string,uint256,uint256)
+          handler: handleEmergencyPriceSet
+      file: ./src/price-oracle.ts
+
+  # Advanced Governance - DAO Events
+  - kind: ethereum
+    name: AdvancedGovernance
+    network: optimism
+    source:
+      address: "0x0000000000000000000000000000000000000000" # Will be updated after deployment
+      abi: AdvancedGovernance
+      startBlock: 0 # Will be updated after deployment
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Proposal
+        - Vote
+        - TokenHolder
+        - GovernanceToken
+        - DailyStats
+      abis:
+        - name: AdvancedGovernance
+          file: ./abis/AdvancedGovernance.json
+        - name: GovernanceToken
+          file: ./abis/GovernanceToken.json
+      eventHandlers:
+        - event: ProposalCreated(uint256,indexed address,string,string,uint256,uint256)
+          handler: handleProposalCreated
+        - event: ProposalCreatedWithCategory(indexed uint256,indexed address,uint8,string,string)
+          handler: handleProposalCreatedWithCategory
+        - event: VoteCast(indexed address,uint256,uint8,uint256,string)
+          handler: handleVoteCast
+        - event: ProposalExecuted(uint256)
+          handler: handleProposalExecuted
+        - event: ProposalCanceled(uint256)
+          handler: handleProposalCanceled
+        - event: VoteDelegated(indexed address,indexed address,uint256)
+          handler: handleVoteDelegated
+      file: ./src/governance.ts
+
+  # Governance Token - Token Transfer Events
+  - kind: ethereum
+    name: GovernanceToken
+    network: optimism
+    source:
+      address: "0x0000000000000000000000000000000000000000" # Will be updated after deployment
+      abi: GovernanceToken
+      startBlock: 0 # Will be updated after deployment
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - TokenHolder
+        - GovernanceToken
+      abis:
+        - name: GovernanceToken
+          file: ./abis/GovernanceToken.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+        - event: DelegateChanged(indexed address,indexed address,indexed address)
+          handler: handleDelegateChanged
+        - event: DelegateVotesChanged(indexed address,uint256,uint256)
+          handler: handleDelegateVotesChanged
+      file: ./src/governance-token.ts
+
+  # Liquidation Bot - Automated Liquidation Events
+  - kind: ethereum
+    name: LiquidationBot
+    network: optimism
+    source:
+      address: "0x0000000000000000000000000000000000000000" # Will be updated after deployment
+      abi: LiquidationBot
+      startBlock: 0 # Will be updated after deployment
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Liquidation
+        - Liquidator
+        - ProtocolMetrics
+      abis:
+        - name: LiquidationBot
+          file: ./abis/LiquidationBot.json
+      eventHandlers:
+        - event: LiquidationExecuted(indexed bytes32,indexed address,uint256,uint256)
+          handler: handleLiquidationExecuted
+        - event: KeeperRegistered(indexed address)
+          handler: handleKeeperRegistered
+        - event: TargetAdded(indexed bytes32,uint256,uint256)
+          handler: handleTargetAdded
+        - event: TargetRemoved(indexed bytes32,string)
+          handler: handleTargetRemoved
+      file: ./src/liquidation-bot.ts
+
+  # Batch Executor - L2 Optimization Events
+  - kind: ethereum
+    name: BatchExecutor
+    network: optimism
+    source:
+      address: "0x0000000000000000000000000000000000000000" # Will be updated after deployment
+      abi: BatchExecutor
+      startBlock: 0 # Will be updated after deployment
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - ProtocolMetrics
+      abis:
+        - name: BatchExecutor
+          file: ./abis/BatchExecutor.json
+      eventHandlers:
+        - event: BatchExecuted(indexed address,uint256,uint256,uint256)
+          handler: handleBatchExecuted
+        - event: TradesBatched(indexed address,uint256,uint256)
+          handler: handleTradesBatched
+        - event: LiquidationsBatched(indexed address,uint256,uint256)
+          handler: handleLiquidationsBatched
+      file: ./src/batch-executor.ts
+
+templates:
+  # Template for dynamically added markets
+  - kind: ethereum/contract
+    name: MarketTemplate
+    network: optimism
+    source:
+      abi: DerivativesEngine
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Market
+        - Position
+        - Trade
+      abis:
+        - name: DerivativesEngine
+          file: ./abis/DerivativesEngine.json
+      eventHandlers:
+        - event: PositionOpened(indexed address,indexed bytes32,string,uint256,uint256,uint256,bool)
+          handler: handlePositionOpened
+        - event: PositionClosed(indexed address,indexed bytes32,uint256,int256)
+          handler: handlePositionClosed
+      file: ./src/derivatives-engine.ts
